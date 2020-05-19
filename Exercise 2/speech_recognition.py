@@ -15,7 +15,7 @@ class App:
     fs = 44100
     frames = []
 
-    with open("output.pkl", "rb") as file:
+    with open("output1.pkl", "rb") as file:
         models = pickle.load(file)
 
 
@@ -72,7 +72,7 @@ class App:
     def set_predict_text(self):
         text = 'Không thể đoán nhận từ vừa đọc'
         if self.predict == 'song':
-            text = 'Sống'
+            text = 'Song'
         elif self.predict == 'toi':
             text = 'Tôi'
         elif self.predict == 'truoc':
