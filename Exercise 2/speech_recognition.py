@@ -6,7 +6,9 @@ import pickle
 import librosa
 import math
 import numpy as np
-import operator
+import scipy
+import soundfile as sf
+
 
 class App:
     chunk = 1024
@@ -15,25 +17,36 @@ class App:
     fs = 44100
     frames = []
 
-    with open("output1.pkl", "rb") as file:
+    with open("output_final.pkl", "rb") as file:
         models = pickle.load(file)
 
+    def __init__(self):
 
-    def __init__(self, master):
+        self.root = tk.Tk()
+        self.root.title('Speech Recognition')
+        self.root.geometry('400x400')
+        self.root.bind("<Key>", self.keypress)
+
+
         self.sentences = []
         self.is_recording = False
-        self.button1 = tk.Button(main, text='record', command=self.start, width=10)
-        self.button2 = tk.Button(main, text='stop', command=self.stop, width=10)
-        self.text = tk.Text(main, height=20, width=50)
-        self.lable = tk.Label(main, text='Predict')
+        self.button1 = tk.Button( self.root, text='record', command=self.start, width=10)
+        self.button2 = tk.Button( self.root, text='stop', command=self.stop, width=10)
+        self.button3 = tk.Button( self.root, text="play", command=self.play, width=10)
+        self.button4 = tk.Button( self.root, text="remove noise", command=self.remove_noise, width=10)
+        # self.button5 = tk.Button(main, text="Predict", command=self.predict, width=10)
+
+        self.text = tk.Text( self.root, height=20, width=50)
+
         self.button1.pack()
         self.button2.pack()
-        self.lable.pack()
+        self.button3.pack()
+        self.button4.pack()
+        # self.button5.pack()
         self.text.pack()
 
         self.predict = ''
-
-
+        self.root.mainloop()
 
     def start(self):
         self.p = pyaudio.PyAudio()
@@ -57,10 +70,14 @@ class App:
         wf.writeframes(b''.join(self.frames))
         wf.close()
         self.frames.clear()
+        self.pre()
 
+    def pre(self):
+        filename = 'data.wav'
         O = self.get_mfcc(filename)
         score = {cname: model.score(O, [len(O)]) for cname, model in self.models.items()}
         inverse = [(value, key) for key, value in score.items()]
+        print(inverse)
         self.predict = max(inverse)[1]
         self.set_predict_text()
 
@@ -72,7 +89,7 @@ class App:
     def set_predict_text(self):
         text = 'Không thể đoán nhận từ vừa đọc'
         if self.predict == 'song':
-            text = 'Song'
+            text = 'Sống'
         elif self.predict == 'toi':
             text = 'Tôi'
         elif self.predict == 'truoc':
@@ -102,10 +119,63 @@ class App:
         # return T x 36 (transpose of X)
         return X.T  # hmmlearn use T x N matrix
 
+    def play(self):
+        filename = 'data.wav'
+        chunk = 1024
+        wf = wave.open(filename, 'rb')
+        p = pyaudio.PyAudio()
+        stream = p.open(
+            format=p.get_format_from_width(wf.getsampwidth()),
+            channels=wf.getnchannels(),
+            rate=wf.getframerate(),
+            output=True)
+
+        data = wf.readframes(chunk)
+
+        while len(data) > 0:  # is_playing to stop playing
+            stream.write(data)
+            data = wf.readframes(chunk)
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
+
+    def trim_silence(self, y):
+        y_trimmed, index = librosa.effects.trim(y, top_db=20, frame_length=25, hop_length=10)
+        trimmed_length = librosa.get_duration(y) - librosa.get_duration(y_trimmed)
+        return y_trimmed, trimmed_length
+
+    def remove_noise(self):
+        y, sr = librosa.load("data.wav")
+        y_trimmed, index = librosa.effects.trim(y, top_db=20, frame_length=2, hop_length=500)
+        y_reduced_median = scipy.signal.medfilt(y_trimmed, 3)
+
+        trimmed_length = librosa.get_duration(y) - librosa.get_duration(y_trimmed)
+        sf.write('data.wav', y_reduced_median, sr, 'PCM_24')
+        self.pre()
+
+    def keypress(self, event):
+        """Recieve a keypress and move the ball by a specified amount"""
+        print(event.char)
+        if event.char == 'p':
+            self.play()
+
+        if event.char == 'r':
+            print(True)
+            self.start()
+
+        if event.char == 's':
+            self.stop()
+
+        if event.char == 'q':
+            self.remove_noise()
 
 
-main = tk.Tk()
-main.title('Speech Recognition')
-main.geometry('400x400')
-app = App(main)
-main.mainloop()
+
+# main = tk.Tk()
+# main.title('Speech Recognition')
+# main.geometry('400x400')
+#
+# app = App(main)
+# main.mainloop()
+
+display = App()
